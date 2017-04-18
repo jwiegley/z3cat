@@ -11,6 +11,8 @@
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
+{-# OPTIONS_GHC -Wall #-}
+
 module Z3.Category where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
@@ -30,29 +32,30 @@ data E :: * -> * where
 
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
+
+liftE2 :: (AST -> AST -> Z3 AST) -> Z3Cat (a,b) c
+liftE2 f = Z3Cat $ Kleisli $ \ (PairE (PrimE a) (PrimE b)) -> PrimE <$> f a b
+
+liftLE2 :: ([AST] -> Z3 AST) -> Z3Cat (a,b) c
+liftLE2 f = liftE2 (\ a b -> f [a,b])
+
 instance Category Z3Cat where
     id  = Z3Cat id
     Z3Cat f . Z3Cat g = Z3Cat (f . g)
 
 instance Eq a => EqCat Z3Cat a where
-    equal    = Z3Cat $ Kleisli $ \(PairE (PrimE a) (PrimE b)) ->
-        PrimE <$> mkEq a b
-    notEqual = Z3Cat $ Kleisli $ \(PairE (PrimE a) (PrimE b)) ->
-        PrimE <$> (mkNot =<< mkEq a b)
+    equal    = liftE2 mkEq
+    notEqual = liftE2 (\ a b -> mkNot =<< mkEq a b) -- notC . equal
 
 instance Ord a => OrdCat Z3Cat a where
-    lessThan           = Z3Cat $ Kleisli $ \(PairE (PrimE a) (PrimE b)) ->
-        PrimE <$> mkLt a b
-    greaterThan        = Z3Cat $ Kleisli $ \(PairE (PrimE a) (PrimE b)) ->
-        PrimE <$> mkGt a b
-    lessThanOrEqual    = Z3Cat $ Kleisli $ \(PairE (PrimE a) (PrimE b)) ->
-        PrimE <$> mkLe a b
-    greaterThanOrEqual = Z3Cat $ Kleisli $ \(PairE (PrimE a) (PrimE b)) ->
-        PrimE <$> mkGe a b
+    lessThan           = liftE2 mkLt
+    greaterThan        = liftE2 mkGt
+    lessThanOrEqual    = liftE2 mkLe
+    greaterThanOrEqual = liftE2 mkGe
 
 instance Fractional a => FractionalCat Z3Cat a where
     recipC = undefined
-    divideC = Z3Cat $ Kleisli $ \(PairE (PrimE b) (PrimE c)) -> PrimE <$> mkDiv b c
+    divideC = liftE2 mkDiv
 
 instance (RealFrac a, Integral b) => RealFracCat Z3Cat a b where
     floorC = undefined
@@ -80,9 +83,9 @@ instance (Enum a, Show a) => EnumCat Z3Cat a where
 
 instance BoolCat Z3Cat where
     notC = Z3Cat $ Kleisli $ \(PrimE b) -> PrimE <$> mkNot b
-    andC = Z3Cat $ Kleisli $ \(PairE (PrimE b) (PrimE c)) -> PrimE <$> mkAnd [b, c]
-    orC  = Z3Cat $ Kleisli $ \(PairE (PrimE b) (PrimE c)) -> PrimE <$> mkOr [b, c]
-    xorC = Z3Cat $ Kleisli $ \(PairE (PrimE b) (PrimE c)) -> PrimE <$> mkXor b c
+    andC = liftLE2 mkAnd
+    orC  = liftLE2 mkOr
+    xorC = liftE2 mkXor
 
 instance IfCat Z3Cat a where
   ifC = Z3Cat $ Kleisli $ \ (PairE (PrimE c) (PairE (PrimE t) (PrimE e))) ->
@@ -103,14 +106,17 @@ instance CoproductCat Z3Cat where
         Left x -> runKleisli f x
         Right x -> runKleisli g x
 
+constPrim :: (z -> Z3 AST) -> z -> Z3Cat a b
+constPrim f x = Z3Cat $ Kleisli $ \_ -> PrimE <$> f x
+
 instance ConstCat Z3Cat Int where
-    const b = Z3Cat $ Kleisli $ \_ -> PrimE <$> mkIntNum b
+    const = constPrim mkIntNum
 
 instance ConstCat Z3Cat Integer where
-    const b = Z3Cat $ Kleisli $ \_ -> PrimE <$> mkIntNum b
+    const = constPrim mkIntNum
 
 instance ConstCat Z3Cat Bool where
-    const b = Z3Cat $ Kleisli $ \_ -> PrimE <$> mkBool b
+    const = constPrim mkBool
 
 instance ClosedCat Z3Cat where
     curry = undefined
@@ -118,9 +124,9 @@ instance ClosedCat Z3Cat where
 
 instance Num a => NumCat Z3Cat a where
     negateC = undefined
-    addC    = Z3Cat $ Kleisli $ \(PairE (PrimE b) (PrimE c)) -> PrimE <$> mkAdd [b, c]
-    subC    = Z3Cat $ Kleisli $ \(PairE (PrimE b) (PrimE c)) -> PrimE <$> mkSub [b, c]
-    mulC    = Z3Cat $ Kleisli $ \(PairE (PrimE b) (PrimE c)) -> PrimE <$> mkMul [b, c]
+    addC    = liftLE2 mkAdd
+    subC    = liftLE2 mkSub
+    mulC    = liftLE2 mkMul
     powIC   = error "Z3 doesn't seem to have an exponentiation operator"
 
 runZ3 :: Z3Cat a Bool -> Z3 (E a) -> IO (Maybe [Integer])
@@ -140,3 +146,4 @@ runZ3 eq mkVars = evalZ3With Nothing opts $ do
         PrimE p   -> [p]
         PairE p q -> tolist p ++ tolist q
         _         -> []
+
