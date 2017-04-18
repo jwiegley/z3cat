@@ -32,12 +32,11 @@ data E :: * -> * where
 
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
-
 liftE2 :: (AST -> AST -> Z3 AST) -> Z3Cat (a,b) c
 liftE2 f = Z3Cat $ Kleisli $ \ (PairE (PrimE a) (PrimE b)) -> PrimE <$> f a b
 
-liftLE2 :: ([AST] -> Z3 AST) -> Z3Cat (a,b) c
-liftLE2 f = liftE2 (\ a b -> f [a,b])
+l2 :: ([a] -> b) -> a -> a -> b
+l2 f a1 a2 = f [a1,a2]
 
 instance Category Z3Cat where
     id  = Z3Cat id
@@ -83,8 +82,8 @@ instance (Enum a, Show a) => EnumCat Z3Cat a where
 
 instance BoolCat Z3Cat where
     notC = Z3Cat $ Kleisli $ \(PrimE b) -> PrimE <$> mkNot b
-    andC = liftLE2 mkAnd
-    orC  = liftLE2 mkOr
+    andC = liftE2 (l2 mkAnd)
+    orC  = liftE2 (l2 mkOr)
     xorC = liftE2 mkXor
 
 instance IfCat Z3Cat a where
@@ -124,9 +123,9 @@ instance ClosedCat Z3Cat where
 
 instance Num a => NumCat Z3Cat a where
     negateC = undefined
-    addC    = liftLE2 mkAdd
-    subC    = liftLE2 mkSub
-    mulC    = liftLE2 mkMul
+    addC    = liftE2 (l2 mkAdd)
+    subC    = liftE2 (l2 mkSub)
+    mulC    = liftE2 (l2 mkMul)
     powIC   = error "Z3 doesn't seem to have an exponentiation operator"
 
 runZ3 :: Z3Cat a Bool -> Z3 (E a) -> IO (Maybe [Integer])
