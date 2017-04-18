@@ -140,8 +140,12 @@ instance ConstCat Z3Cat Integer where const = constPrim mkIntNum
 instance ConstCat Z3Cat Bool    where const = constPrim mkBool
 
 instance ClosedCat Z3Cat where
-    curry   (Z f) = Z $ \x -> return $ ArrE $ \y -> f (PairE x y)
-    uncurry (Z f) = Z $ \(PairE x y) -> f x >>= \(ArrE f') -> f' y
+    curry   (Z3Cat (Kleisli f)) = Z $ \x -> return $ ArrE $ \y -> f (PairE x y)
+    uncurry (Z3Cat (Kleisli f)) = Z $ \(PairE x y) -> f x >>= \(ArrE f') -> f' y
+
+-- Before GHC 8.2, the Z patterns here lead to erroneous warnings: "Pattern
+-- match(es) are non-exhaustive". Switch back to Z when we're on 8.2. See
+-- https://ghc.haskell.org/trac/ghc/ticket/8779.
 
 instance Num a => NumCat Z3Cat a where
     negateC = undefined
