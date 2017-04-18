@@ -5,6 +5,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -13,7 +14,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-module Z3.Category where
+module Z3.Category (Z3Cat, runZ3) where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
@@ -54,8 +55,11 @@ flattenE (ArrE _)         = error "flattenE: arrows?"
 
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
+pattern Z :: (E t -> Z3 (E u)) -> Z3Cat t u
+pattern Z f = Z3Cat (Kleisli f)
+
 eprim :: (E a -> Z3 AST) -> Z3Cat a b
-eprim f = Z3Cat $ Kleisli $ \ z -> PrimE <$> f z
+eprim f = Z $ fmap PrimE . f
 
 liftE1 :: (AST -> Z3 AST) -> Z3Cat a c
 liftE1 f = eprim $ \ (PrimE a) -> f a
@@ -145,10 +149,8 @@ instance ConstCat Z3Cat Integer where const = constPrim mkIntNum
 instance ConstCat Z3Cat Bool    where const = constPrim mkBool
 
 instance ClosedCat Z3Cat where
-    curry (Z3Cat (Kleisli f)) = Z3Cat $ Kleisli $ \x ->
-        return $ ArrE $ \y -> f (PairE x y)
-    uncurry (Z3Cat (Kleisli f)) = Z3Cat $ Kleisli $ \(PairE x y) ->
-         f x >>= \(ArrE f') -> f' y
+    curry   (Z f) = Z $ \x -> return $ ArrE $ \y -> f (PairE x y)
+    uncurry (Z f) = Z $ \(PairE x y) -> f x >>= \(ArrE f') -> f' y
 
 instance Num a => NumCat Z3Cat a where
     negateC = undefined
