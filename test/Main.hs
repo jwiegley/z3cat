@@ -1,41 +1,18 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
-
-{-# OPTIONS_GHC -Wall #-}
 
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
 {-# OPTIONS_GHC -fsimpl-tick-factor=2800 #-}
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
-{-# OPTIONS_GHC -dsuppress-idinfo #-}
-{-# OPTIONS_GHC -dsuppress-uniques #-}
-{-# OPTIONS_GHC -dsuppress-module-prefixes #-}
-
 module Main where
 
 import ConCat.AltCat (ccc)
 import ConCat.Category hiding (it)
-import Control.Arrow (Kleisli(runKleisli))
 import Control.Monad.IO.Class
-import Data.Maybe
-import Debug.Trace
 import Prelude hiding ((.), id, curry, uncurry)
 import Test.Hspec
 import Z3.Category
 import Z3.Monad
-
-assertShow :: AST -> Z3 ()
-assertShow ast = do
-    traceM =<< astToString ast
-    assert ast
 
 equation :: (Num a, Ord a) => a -> a -> Bool
 equation x y =
