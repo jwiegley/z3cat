@@ -20,6 +20,7 @@ import Prelude hiding (id, (.), curry, uncurry, const)
 
 import Control.Applicative (liftA2)
 import Control.Monad (join)
+import Control.Arrow (arr)
 
 import ConCat.Category
 import ConCat.Rep
@@ -35,6 +36,14 @@ data E :: * -> * where
   -- ArrE  :: (E a -> E b) -> E (a -> b)
 
 deriving instance Show (E a)
+
+unpairE :: E (a,b) -> (E a, E b)
+unpairE (PairE a b) = (a,b)
+unpairE e = error ("unpairE: non-pair" ++ show e)
+
+unsumE :: E (Either a b) -> Either (E a) (E b)
+unsumE (SumE ab) = ab
+unsumE e = error ("unpairE: non-sum" ++ show e)
 
 flattenE :: E a -> [AST]
 flattenE (PrimE ast)      = [ast]
@@ -53,8 +62,6 @@ liftE1 f = eprim $ \ (PrimE a) -> f a
 
 liftE2 :: (AST -> AST -> Z3 AST) -> Z3Cat (a,b) c
 liftE2 f = eprim $ \ (PairE (PrimE a) (PrimE b)) -> f a b
-
--- liftE2 f = Z3Cat $ Kleisli $ \ (PairE (PrimE a) (PrimE b)) -> PrimE <$> f a b
 
 l2 :: ([a] -> b) -> a -> a -> b
 l2 f a1 a2 = f [a1,a2]
@@ -111,19 +118,24 @@ instance IfCat Z3Cat a where
   ifC = eprim $ \ (PairE (PrimE c) (PairE (PrimE t) (PrimE e))) -> mkIte c t e
 
 instance ProductCat Z3Cat where
-    exl   = Z3Cat $ Kleisli $ \(PairE b _) -> return b
-    exr   = Z3Cat $ Kleisli $ \(PairE _ b) -> return b
-    Z3Cat f &&& Z3Cat g = Z3Cat $ Kleisli $ \b -> do
-        x <- runKleisli f b
-        y <- runKleisli g b
-        return $ PairE x y
+    exl   = Z3Cat $ arr $ exl . unpairE
+    exr   = Z3Cat $ arr $ exr . unpairE
+    Z3Cat f &&& Z3Cat g = Z3Cat $ arr (uncurry PairE) . (f &&& g)
+
+-- f :: Kleisli Z3 (E a) (E c)
+-- g :: Kleisli Z3 (E a) (E d)
+-- f &&& g :: Kleisli Z3 (E a) (E c,E d)
+-- arr (uncurry PairE) :: Kleisli Z3 (E c, E d) (E (c,d))
 
 instance CoproductCat Z3Cat where
-    inl   = Z3Cat $ Kleisli $ \b -> return $ SumE (Left b)
-    inr   = Z3Cat $ Kleisli $ \b -> return $ SumE (Right b)
-    Z3Cat f ||| Z3Cat g = Z3Cat $ Kleisli $ \(SumE b) -> case b of
-        Left x -> runKleisli f x
-        Right x -> runKleisli g x
+    inl   = Z3Cat $ arr $ SumE . inl
+    inr   = Z3Cat $ arr $ SumE . inr
+    Z3Cat f ||| Z3Cat g = Z3Cat $ (f ||| g) . arr unsumE
+
+-- f :: Kleisli Z3 (E a) (E c)
+-- g :: Kleisli Z3 (E b) (E c)
+-- f ||| g :: Kleisli Z3 (Either (E a) (E b)) (E c)
+-- (f ||| g) . arr unsumE :: Kleisli Z3 (E (Either a b)) (E c)
 
 constPrim :: (z -> Z3 AST) -> z -> Z3Cat a b
 constPrim f x = Z3Cat $ Kleisli $ \_ -> PrimE <$> f x
