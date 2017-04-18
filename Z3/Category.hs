@@ -24,7 +24,6 @@ import ConCat.Rep
 import Control.Arrow (Kleisli(..))
 import Data.Maybe (catMaybes)
 import Z3.Monad
-import Control.Monad.State -- (State,execState,StateT)
 
 data E :: * -> * where
   PrimE :: AST -> E a
@@ -138,19 +137,11 @@ instance Num a => NumCat Z3Cat a where
     mulC    = liftE2 (l2 mkMul)
     powIC   = error "Z3 doesn't seem to have an exponentiation operator"
 
-
-type GenM = StateT Int Z3
-
 class GenE a where
-  genE :: GenM (E a)
+  genE :: Z3 (E a)
 
-generateE :: GenE a => Z3 (E a)
-generateE = evalStateT genE 0
-
-genPrim :: (String -> Z3 AST) -> GenM (E a)
-genPrim mk = do n <- get
-                put (n+1)
-                PrimE <$> lift (mk ("x" ++ show n))
+genPrim :: (String -> Z3 AST) -> Z3 (E a)
+genPrim mk = PrimE <$> mk "x"
 
 instance GenE Bool   where genE = genPrim mkFreshBoolVar
 instance GenE Int    where genE = genPrim mkFreshIntVar
@@ -162,7 +153,7 @@ instance (GenE a, GenE b) => GenE (a,b) where
 
 runZ3 :: GenE a => Z3Cat a Bool -> IO (Maybe [Integer])
 runZ3 eq = evalZ3With Nothing opts $ do
-    vars <- generateE
+    vars <- genE
     PrimE ast <- runKleisli (runZ3Cat eq) vars
     assert ast
     -- check and get solution
