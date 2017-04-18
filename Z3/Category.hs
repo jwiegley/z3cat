@@ -27,6 +27,7 @@ import Control.Arrow (Kleisli(..))
 -- import Data.Maybe (catMaybes)
 import Z3.Monad
 
+-- Typed AST structures ("expressions")
 data E :: * -> * where
   PrimE :: AST -> E a
   PairE :: E a -> E b -> E (a, b)
@@ -41,7 +42,6 @@ flattenE (PairE a b)      = flattenE a ++ flattenE b
 flattenE (SumE (Left a))  = flattenE a
 flattenE (SumE (Right b)) = flattenE b
 -- flattenE (ArrE _)         = error "flattenE: ArrE"
-
 
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
@@ -141,8 +141,7 @@ instance Num a => NumCat Z3Cat a where
     mulC    = liftE2 (l2 mkMul)
     powIC   = error "Z3 doesn't seem to have an exponentiation operator"
 
-class GenE a where
-  genE :: Z3 (E a)
+class GenE a where genE :: Z3 (E a)
 
 genPrim :: (String -> Z3 AST) -> Z3 (E a)
 genPrim mk = PrimE <$> mk "x"
@@ -173,11 +172,10 @@ evalInt' = (fmap.fmap.fmap.fmap) fromInteger evalInt
 evalReal' :: Fractional a => EvalAst Z3 a
 evalReal' = (fmap.fmap.fmap.fmap) fromRational evalReal
 
-instance EvalE Bool  where evalE = evalPrim evalBool
-instance EvalE Int   where evalE = evalPrim evalInt'
-
-instance EvalE Float   where evalE = evalPrim evalReal'
-instance EvalE Double  where evalE = evalPrim evalReal'
+instance EvalE Bool   where evalE = evalPrim evalBool
+instance EvalE Int    where evalE = evalPrim evalInt'
+instance EvalE Float  where evalE = evalPrim evalReal'
+instance EvalE Double where evalE = evalPrim evalReal'
 
 instance (EvalE a, EvalE b) => EvalE (a,b) where
   evalE m (PairE a b) = (liftA2.liftA2) (,) (evalE m a) (evalE m b)
@@ -190,10 +188,10 @@ instance (EvalE a, EvalE b) => EvalE (Either a b) where
 
 runZ3 :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
 runZ3 eq = evalZ3With Nothing opts $ do
-    vars <- genE
-    PrimE ast <- runKleisli (runZ3Cat eq) vars
+    e <- genE
+    PrimE ast <- runKleisli (runZ3Cat eq) e
     assert ast
     -- check and get solution
-    join <$> (fmap snd $ withModel $ flip evalE vars)
+    join <$> (fmap snd $ withModel $ flip evalE e)
   where
     opts = opt "MODEL" True
