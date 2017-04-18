@@ -138,16 +138,11 @@ instance CoproductCat Z3Cat where
 -- (f ||| g) . arr unsumE :: Kleisli Z3 (E (Either a b)) (E c)
 
 constPrim :: (z -> Z3 AST) -> z -> Z3Cat a b
-constPrim f x = Z3Cat $ Kleisli $ \_ -> PrimE <$> f x
+constPrim f x = eprim (const (f x))
 
-instance ConstCat Z3Cat Int where
-    const = constPrim mkIntNum
-
-instance ConstCat Z3Cat Integer where
-    const = constPrim mkIntNum
-
-instance ConstCat Z3Cat Bool where
-    const = constPrim mkBool
+instance ConstCat Z3Cat Int     where const = constPrim mkIntNum
+instance ConstCat Z3Cat Integer where const = constPrim mkIntNum
+instance ConstCat Z3Cat Bool    where const = constPrim mkBool
 
 instance ClosedCat Z3Cat where
     curry = undefined
@@ -170,8 +165,7 @@ instance GenE Int    where genE = genPrim mkFreshIntVar
 instance GenE Float  where genE = genPrim mkFreshRealVar
 instance GenE Double where genE = genPrim mkFreshRealVar
 
-instance (GenE a, GenE b) => GenE (a,b) where
-  genE = liftA2 PairE genE genE
+instance (GenE a, GenE b) => GenE (a,b) where genE = liftA2 PairE genE genE
 
 class EvalE a where evalE :: Model -> E a -> Z3 (Maybe a)
 
