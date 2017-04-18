@@ -45,8 +45,16 @@ flattenE (SumE (Right b)) = flattenE b
 
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
+eprim :: (E a -> Z3 AST) -> Z3Cat a b
+eprim f = Z3Cat $ Kleisli $ \ z -> PrimE <$> f z
+
+liftE1 :: (AST -> Z3 AST) -> Z3Cat a c
+liftE1 f = eprim $ \ (PrimE a) -> f a
+
 liftE2 :: (AST -> AST -> Z3 AST) -> Z3Cat (a,b) c
-liftE2 f = Z3Cat $ Kleisli $ \ (PairE (PrimE a) (PrimE b)) -> PrimE <$> f a b
+liftE2 f = eprim $ \ (PairE (PrimE a) (PrimE b)) -> f a b
+
+-- liftE2 f = Z3Cat $ Kleisli $ \ (PairE (PrimE a) (PrimE b)) -> PrimE <$> f a b
 
 l2 :: ([a] -> b) -> a -> a -> b
 l2 f a1 a2 = f [a1,a2]
@@ -94,14 +102,13 @@ instance (Enum a, Show a) => EnumCat Z3Cat a where
     predC = undefined
 
 instance BoolCat Z3Cat where
-    notC = Z3Cat $ Kleisli $ \(PrimE b) -> PrimE <$> mkNot b
+    notC = liftE1 mkNot
     andC = liftE2 (l2 mkAnd)
     orC  = liftE2 (l2 mkOr)
     xorC = liftE2 mkXor
 
 instance IfCat Z3Cat a where
-  ifC = Z3Cat $ Kleisli $ \ (PairE (PrimE c) (PairE (PrimE t) (PrimE e))) ->
-          PrimE <$> mkIte c t e
+  ifC = eprim $ \ (PairE (PrimE c) (PairE (PrimE t) (PrimE e))) -> mkIte c t e
 
 instance ProductCat Z3Cat where
     exl   = Z3Cat $ Kleisli $ \(PairE b _) -> return b
