@@ -11,6 +11,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE UnicodeSyntax #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -23,6 +24,7 @@ import ConCat.Rep
 import Control.Applicative (liftA2)
 import Control.Arrow (Kleisli(..), arr)
 import Control.Monad (join)
+import Text.Show.Functions ()
 import Z3.Monad
 
 -- Typed AST structures ("expressions")
@@ -32,11 +34,7 @@ data E :: * -> * where
     SumE  :: Either (E a) (E b) -> E (Either a b)
     ArrE  :: (E a -> Z3 (E b)) -> E (a -> b)
 
-instance Show (E a) where
-    show (PrimE x)   = "PrimE " ++ show x
-    show (PairE x y) = "PairE " ++ show x ++ " " ++ show y
-    show (SumE  x)   = "SumE " ++ show x
-    show (ArrE  _)   = "ArrE"
+deriving instance Show (E a)
 
 unpairE :: E (a,b) -> (E a, E b)
 unpairE (PairE a b) = (a,b)
