@@ -8,11 +8,9 @@ module Main where
 
 import ConCat.AltCat (ccc)
 import ConCat.Category hiding (it)
-import Control.Monad.IO.Class
 import Prelude hiding ((.), id, curry, uncurry)
 import Test.Hspec
 import Z3.Category
-import Z3.Monad
 
 equation :: (Num a, Ord a) => a -> a -> Bool
 equation x y =
@@ -25,6 +23,6 @@ equation x y =
 main :: IO ()
 main = hspec $
     describe "Basic tests" $
-        it "Runs a Haskell function through Z3" $ do
-            solution <- liftIO $ runZ3 (ccc (uncurry (equation @Int)))
-            solution `shouldBe` (Just (-8, 2))
+        it "Runs a Haskell function through Z3" $
+            runZ3 (ccc (uncurry (equation @Int)))
+                `shouldReturn` Just (-8, 2)
