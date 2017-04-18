@@ -10,7 +10,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE UnicodeSyntax #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 {-# OPTIONS_GHC -Wall #-}
 
@@ -30,9 +29,13 @@ data E :: * -> * where
     PrimE :: AST -> E a
     PairE :: E a -> E b -> E (a, b)
     SumE  :: Either (E a) (E b) -> E (Either a b)
-    -- ArrE  :: (E a -> E b) -> E (a -> b)
+    ArrE  :: (E a -> Z3 (E b)) -> E (a -> b)
 
-deriving instance Show (E a)
+instance Show (E a) where
+    show (PrimE x)   = "PrimE " ++ show x
+    show (PairE x y) = "PairE " ++ show x ++ " " ++ show y
+    show (SumE  x)   = "SumE " ++ show x
+    show (ArrE  _)   = "ArrE"
 
 unpairE :: E (a,b) -> (E a, E b)
 unpairE (PairE a b) = (a,b)
@@ -40,14 +43,14 @@ unpairE e = error ("unpairE: non-pair" ++ show e)
 
 unsumE :: E (Either a b) -> Either (E a) (E b)
 unsumE (SumE ab) = ab
-unsumE e = error ("unpairE: non-sum" ++ show e)
+unsumE e = error ("unsumE: non-sum" ++ show e)
 
 flattenE :: E a -> [AST]
 flattenE (PrimE ast)      = [ast]
 flattenE (PairE a b)      = flattenE a ++ flattenE b
 flattenE (SumE (Left a))  = flattenE a
 flattenE (SumE (Right b)) = flattenE b
--- flattenE (ArrE _)         = error "flattenE: ArrE"
+flattenE (ArrE _)         = error "flattenE: arrows?"
 
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
@@ -142,8 +145,10 @@ instance ConstCat Z3Cat Integer where const = constPrim mkIntNum
 instance ConstCat Z3Cat Bool    where const = constPrim mkBool
 
 instance ClosedCat Z3Cat where
-    curry = undefined
-    uncurry = undefined
+    curry (Z3Cat (Kleisli f)) = Z3Cat $ Kleisli $ \x ->
+        return $ ArrE $ \y -> f (PairE x y)
+    uncurry (Z3Cat (Kleisli f)) = Z3Cat $ Kleisli $ \(PairE x y) ->
+         f x >>= \(ArrE f') -> f' y
 
 instance Num a => NumCat Z3Cat a where
     negateC = undefined
