@@ -5,6 +5,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
@@ -19,6 +20,7 @@ import Prelude hiding (id, (.), curry, uncurry, const)
 import ConCat.Category
 import ConCat.Rep
 import Control.Arrow (Kleisli(..))
+import Data.Maybe (catMaybes)
 import Prelude hiding ((.), id, curry, uncurry)
 import Z3.Monad
 
@@ -127,6 +129,21 @@ instance Num a => NumCat Z3Cat a where
     mulC    = liftLE2 mkMul
     powIC   = error "Z3 doesn't seem to have an exponentiation operator"
 
+runZ3 :: Z3Cat a Bool -> Z3 (E a) -> IO (Maybe [Integer])
+runZ3 eq mkVars = evalZ3With Nothing opts $ do
+    vars <- mkVars
+    PrimE ast <- runKleisli (runZ3Cat eq) vars
+    assert ast
 
+    -- check and get solution
+    fmap snd $ withModel $ \m ->
+        catMaybes <$> mapM (evalInt m) (tolist vars)
+  where
+    opts = opt "MODEL" True
 
+    tolist :: forall b. E b -> [AST]
+    tolist x = case x of
+        PrimE p   -> [p]
+        PairE p q -> tolist p ++ tolist q
+        _         -> []
 
