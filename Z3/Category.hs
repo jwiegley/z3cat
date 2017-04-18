@@ -44,13 +44,6 @@ unsumE :: E (Either a b) -> Either (E a) (E b)
 unsumE (SumE ab) = ab
 unsumE e = error ("unsumE: non-sum" ++ show e)
 
-flattenE :: E a -> [AST]
-flattenE (PrimE ast)      = [ast]
-flattenE (PairE a b)      = flattenE a ++ flattenE b
-flattenE (SumE (Left a))  = flattenE a
-flattenE (SumE (Right b)) = flattenE b
-flattenE (ArrE _)         = error "flattenE: arrows?"
-
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
 pattern Z :: (E t -> Z3 (E u)) -> Z3Cat t u
@@ -172,10 +165,6 @@ instance (GenE a, GenE b) => GenE (a,b) where genE = liftA2 PairE genE genE
 class EvalE a where evalE :: Model -> E a -> Z3 (Maybe a)
 
 -- TODO: maybe combine GenE and EvalE
-
-unPrimE :: E a -> AST
-unPrimE (PrimE a) = a
-unPrimE e = error ("unPrimE: " ++ show e)
 
 evalPrim :: EvalAst Z3 a' -> (a' -> a) -> Model -> E a -> Z3 (Maybe a)
 evalPrim ev f m (PrimE a) = (fmap.fmap) f (ev m a)
