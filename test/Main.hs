@@ -54,21 +54,3 @@ main = hspec $
                 y <- mkFreshIntVar "y"
                 return $ PairE (PrimE x) (PrimE y)
             xs `shouldBe` Just [-8, 2]
-
-runZ3 :: Z3Cat a Bool -> Z3 (E a) -> IO (Maybe [Integer])
-runZ3 eq mkVars = evalZ3With Nothing opts $ do
-    vars <- mkVars
-    PrimE ast <- runKleisli (runZ3Cat eq) vars
-    assertShow ast
-
-    -- check and get solution
-    fmap snd $ withModel $ \m ->
-        catMaybes <$> mapM (evalInt m) (tolist vars)
-  where
-    opts = opt "MODEL" True
-
-    tolist :: forall b. E b -> [AST]
-    tolist x = case x of
-        PrimE p   -> [p]
-        PairE p q -> tolist p ++ tolist q
-        _         -> []
