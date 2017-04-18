@@ -26,8 +26,5 @@ main :: IO ()
 main = hspec $
     describe "Basic tests" $
         it "Runs a Haskell function through Z3" $ do
-            xs <- liftIO $ runZ3 (ccc (uncurry (equation @Int))) $ do
-                x <- mkFreshIntVar "x"
-                y <- mkFreshIntVar "y"
-                return $ PairE (PrimE x) (PrimE y)
+            xs <- liftIO $ runZ3 (ccc (uncurry (equation @Int)))
             xs `shouldBe` Just [-8, 2]

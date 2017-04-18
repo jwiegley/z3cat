@@ -17,18 +17,28 @@ module Z3.Category where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
+import Control.Applicative (liftA2)
+
 import ConCat.Category
 import ConCat.Rep
 import Control.Arrow (Kleisli(..))
 import Data.Maybe (catMaybes)
-import Prelude hiding ((.), id, curry, uncurry)
 import Z3.Monad
+import Control.Monad.State -- (State,execState,StateT)
 
 data E :: * -> * where
   PrimE :: AST -> E a
   PairE :: E a -> E b -> E (a, b)
   SumE  :: Either (E a) (E b) -> E (Either a b)
   ArrE  :: (E a -> E b) -> E (a -> b)
+
+flattenE :: E a -> [AST]
+flattenE (PrimE ast)      = [ast]
+flattenE (PairE a b)      = flattenE a ++ flattenE b
+flattenE (SumE (Left a))  = flattenE a
+flattenE (SumE (Right b)) = flattenE b
+flattenE (ArrE _)         = error "flattenE: ArrE"
+
 
 newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
 
@@ -128,21 +138,35 @@ instance Num a => NumCat Z3Cat a where
     mulC    = liftE2 (l2 mkMul)
     powIC   = error "Z3 doesn't seem to have an exponentiation operator"
 
-runZ3 :: Z3Cat a Bool -> Z3 (E a) -> IO (Maybe [Integer])
-runZ3 eq mkVars = evalZ3With Nothing opts $ do
-    vars <- mkVars
+
+type GenM = StateT Int Z3
+
+class GenE a where
+  genE :: GenM (E a)
+
+generateE :: GenE a => Z3 (E a)
+generateE = evalStateT genE 0
+
+genPrim :: (String -> Z3 AST) -> GenM (E a)
+genPrim mk = do n <- get
+                put (n+1)
+                PrimE <$> lift (mk ("x" ++ show n))
+
+instance GenE Bool   where genE = genPrim mkFreshBoolVar
+instance GenE Int    where genE = genPrim mkFreshIntVar
+instance GenE Float  where genE = genPrim mkFreshRealVar
+instance GenE Double where genE = genPrim mkFreshRealVar
+
+instance (GenE a, GenE b) => GenE (a,b) where
+  genE = liftA2 PairE genE genE
+
+runZ3 :: GenE a => Z3Cat a Bool -> IO (Maybe [Integer])
+runZ3 eq = evalZ3With Nothing opts $ do
+    vars <- generateE
     PrimE ast <- runKleisli (runZ3Cat eq) vars
     assert ast
-
     -- check and get solution
     fmap snd $ withModel $ \m ->
-        catMaybes <$> mapM (evalInt m) (tolist vars)
+        catMaybes <$> mapM (evalInt m) (flattenE vars)
   where
     opts = opt "MODEL" True
-
-    tolist :: forall b. E b -> [AST]
-    tolist x = case x of
-        PrimE p   -> [p]
-        PairE p q -> tolist p ++ tolist q
-        _         -> []
-
