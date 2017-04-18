@@ -18,22 +18,19 @@ module Z3.Category where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
-import Control.Applicative (liftA2)
-import Control.Monad (join)
-import Control.Arrow (arr)
-
 import ConCat.Category
 import ConCat.Rep
-import Control.Arrow (Kleisli(..))
--- import Data.Maybe (catMaybes)
+import Control.Applicative (liftA2)
+import Control.Arrow (Kleisli(..), arr)
+import Control.Monad (join)
 import Z3.Monad
 
 -- Typed AST structures ("expressions")
 data E :: * -> * where
-  PrimE :: AST -> E a
-  PairE :: E a -> E b -> E (a, b)
-  SumE  :: Either (E a) (E b) -> E (Either a b)
-  -- ArrE  :: (E a -> E b) -> E (a -> b)
+    PrimE :: AST -> E a
+    PairE :: E a -> E b -> E (a, b)
+    SumE  :: Either (E a) (E b) -> E (Either a b)
+    -- ArrE  :: (E a -> E b) -> E (a -> b)
 
 deriving instance Show (E a)
 
@@ -191,13 +188,13 @@ instance EvalE Float  where evalE = evalPrim evalReal'
 instance EvalE Double where evalE = evalPrim evalReal'
 
 instance (EvalE a, EvalE b) => EvalE (a,b) where
-  evalE m (PairE a b) = (liftA2.liftA2) (,) (evalE m a) (evalE m b)
-  evalE _ e = error ("evalE on pair: unexpected E " ++ show e)
+    evalE m (PairE a b) = (liftA2.liftA2) (,) (evalE m a) (evalE m b)
+    evalE _ e = error ("evalE on pair: unexpected E " ++ show e)
 
 instance (EvalE a, EvalE b) => EvalE (Either a b) where
-  evalE m (SumE (Left  a)) = (fmap.fmap) Left  (evalE m a)
-  evalE m (SumE (Right b)) = (fmap.fmap) Right (evalE m b)
-  evalE _ e = error ("evalE on sum: unexpected E " ++ show e)
+    evalE m (SumE (Left  a)) = (fmap.fmap) Left  (evalE m a)
+    evalE m (SumE (Right b)) = (fmap.fmap) Right (evalE m b)
+    evalE _ e = error ("evalE on sum: unexpected E " ++ show e)
 
 runZ3 :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
 runZ3 eq = evalZ3With Nothing opts $ do
@@ -205,6 +202,6 @@ runZ3 eq = evalZ3With Nothing opts $ do
     PrimE ast <- runKleisli (runZ3Cat eq) e
     assert ast
     -- check and get solution
-    join <$> (fmap snd $ withModel $ flip evalE e)
+    join . snd <$> withModel (`evalE` e)
   where
     opts = opt "MODEL" True
