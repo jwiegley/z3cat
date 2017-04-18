@@ -26,5 +26,5 @@ main :: IO ()
 main = hspec $
     describe "Basic tests" $
         it "Runs a Haskell function through Z3" $ do
-            xs <- liftIO $ runZ3 (ccc (uncurry (equation @Int)))
-            xs `shouldBe` Just [-8, 2]
+            solution <- liftIO $ runZ3 (ccc (uncurry (equation @Int)))
+            solution `shouldBe` (Just (-8, 2))
