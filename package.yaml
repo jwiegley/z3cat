@@ -1,0 +1,27 @@
+name:       z3cat
+version:    0.1.0
+synopsis:   Compile Haskell functions into Z3 solver equations
+author:     John Wiegley
+maintainer: johnw@newartisans.com
+category:   System
+license:    MIT
+
+dependencies:
+  - base     >= 4.9   && < 4.10
+  - concat   >= 0.2.0
+  - ghc-prim
+  - z3
+
+library:
+  exposed-modules:
+    - Z3.Category
+
+tests:
+  z3cat:
+    main: Main.hs
+    source-dirs:
+      - test
+    dependencies:
+      - hspec == 2.*
+      - z3cat
+      - quickcheck-io
