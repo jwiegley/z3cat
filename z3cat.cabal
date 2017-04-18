@@ -15,11 +15,11 @@ cabal-version:  >= 1.10
 
 library
   build-depends:
-                  base     >= 4.9   && < 4.10
-                , concat   >= 0.2.0
-                , ghc-prim
-                , mtl      >= 2.2.1
-                , z3
+      base     >= 4.9   && < 4.10
+    , concat   >= 0.2.0
+    , ghc-prim
+    , mtl      >= 2.2.1
+    , z3
   exposed-modules:
       Z3.Category
   other-modules:
@@ -35,6 +35,7 @@ test-suite spec
       base     >= 4.9   && < 4.10
     , concat   >= 0.2.0
     , ghc-prim
+    , mtl      >= 2.2.1
     , z3
     , hspec == 2.*
     , z3cat

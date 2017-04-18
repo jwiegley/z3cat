@@ -10,6 +10,7 @@ dependencies:
   - base     >= 4.9   && < 4.10
   - concat   >= 0.2.0
   - ghc-prim
+  - mtl      >= 2.2.1
   - z3
 
 library:
