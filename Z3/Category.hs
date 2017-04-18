@@ -172,20 +172,14 @@ unPrimE :: E a -> AST
 unPrimE (PrimE a) = a
 unPrimE e = error ("unPrimE: " ++ show e)
 
-evalPrim :: EvalAst Z3 a -> Model -> E a -> Z3 (Maybe a)
-evalPrim ev m (PrimE a) = ev m a
-evalPrim _ _ e = error ("evalPrim: unexpected non-PrimE " ++ show e)
+evalPrim :: EvalAst Z3 a' -> (a' -> a) -> Model -> E a -> Z3 (Maybe a)
+evalPrim ev f m (PrimE a) = (fmap.fmap) f (ev m a)
+evalPrim _  _ _ e = error ("evalPrim: unexpected non-PrimE " ++ show e)
 
-evalInt' :: Num a => EvalAst Z3 a
-evalInt' = (fmap.fmap.fmap.fmap) fromInteger evalInt
-
-evalReal' :: Fractional a => EvalAst Z3 a
-evalReal' = (fmap.fmap.fmap.fmap) fromRational evalReal
-
-instance EvalE Bool   where evalE = evalPrim evalBool
-instance EvalE Int    where evalE = evalPrim evalInt'
-instance EvalE Float  where evalE = evalPrim evalReal'
-instance EvalE Double where evalE = evalPrim evalReal'
+instance EvalE Bool   where evalE = evalPrim evalBool id
+instance EvalE Int    where evalE = evalPrim evalInt  fromInteger
+instance EvalE Float  where evalE = evalPrim evalReal fromRational
+instance EvalE Double where evalE = evalPrim evalReal fromRational
 
 instance (EvalE a, EvalE b) => EvalE (a,b) where
     evalE m (PairE a b) = (liftA2.liftA2) (,) (evalE m a) (evalE m b)
