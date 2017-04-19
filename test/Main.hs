@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -fplugin=ConCat.Plugin #-}
@@ -38,9 +39,10 @@ main = do
             it "Runs a Haskell function through Z3" $
                 runZ3Show (ccc (uncurry (equation @Int))) `shouldReturn` Just (1, 11)
 
-        describe "Non-deterministic choice" $
+        describe "Non-deterministic choice" $ do
             it "Let us satisfy something" $
-                runZ3Choice (singleton ((> 3)   :: Int -> Bool) <>
-                             (singleton ((< 10) :: Int -> Bool) `choose`
-                              singleton ((> 5)  :: Int -> Bool)))
-                    `shouldReturn` Nothing
+                runZ3Choice
+                    (satisfy (\(x :: Int) -> x > 3 && x < 10) <>
+                     choose (satisfy (\(x :: Int) -> x > 5))
+                            (satisfy (\(x :: Int) -> x > 5 && x < 4)))
+                    `shouldReturn` Just "(4,((6,0),True))"

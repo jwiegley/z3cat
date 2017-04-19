@@ -39,20 +39,24 @@ instance Monoid Z3Choice where
     Z3Choice y `mappend` Z3Choice x =
         Z3Choice (\(p1, p2) -> y p1 && x p2)
 
-singleton :: (Choiceable a, EvalE a, GenE a) => (a -> Bool) -> Z3Choice
-singleton = Z3Choice
+satisfy :: (Choiceable a, EvalE a, GenE a) => (a -> Bool) -> Z3Choice
+satisfy = Z3Choice
+
+-- decide :: (Choiceable a, EvalE a, GenE a) => (a -> Z3Choice) -> Z3Choice
+-- decide f = Z3Choice (\a -> case f a of Z3Choice g -> g undefined)
 
 choose :: Z3Choice -> Z3Choice -> Z3Choice
 choose (Z3Choice x) (Z3Choice y) =
     Z3Choice (\((p1, p2), b) -> if b then x p1 else y p2)
+{-# INLINE choose #-}
 
 collection :: [Z3Choice] -> Z3Choice
 collection = foldr choose mempty
 
-satisfy :: (EvalE p, GenE p) => (p -> Bool) -> IO (Maybe p)
-satisfy f = runZ3 (ccc @Z3Cat f)
+solution :: (EvalE p, GenE p) => (p -> Bool) -> IO (Maybe p)
+solution f = runZ3 (ccc @Z3Cat f)
 {-# INLINE satisfy #-}
 
 runZ3Choice :: Z3Choice -> IO (Maybe String)
-runZ3Choice (Z3Choice f) = fmap (fmap show) (satisfy f)
+runZ3Choice (Z3Choice f) = fmap (fmap show) (solution f)
 {-# INLINE runZ3Choice #-}
