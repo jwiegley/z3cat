@@ -15,7 +15,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-module Z3.Category (Z3Cat, runZ3) where
+module Z3.Category (Z3Cat, runZ3, runZ3Show) where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
@@ -24,6 +24,7 @@ import ConCat.Rep
 import Control.Applicative (liftA2)
 import Control.Arrow (Kleisli(..), arr)
 import Control.Monad (join)
+import Debug.Trace
 import Text.Show.Functions ()
 import Z3.Monad
 
@@ -188,12 +189,24 @@ instance (EvalE a, EvalE b) => EvalE (Either a b) where
     evalE m (SumE (Right b)) = (fmap.fmap) Right (evalE m b)
     evalE _ e = error ("evalE on sum: unexpected E " ++ show e)
 
-runZ3 :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
-runZ3 eq = evalZ3With Nothing opts $ do
+assertShow :: AST -> Z3 ()
+assertShow ast = do
+    traceM =<< astToString ast
+    assert ast
+
+runZ3WithAST :: (EvalE a, GenE a)
+             => (AST -> Z3 ()) -> Z3Cat a Bool -> IO (Maybe a)
+runZ3WithAST f eq = evalZ3With Nothing opts $ do
     e <- genE
     PrimE ast <- runKleisli (runZ3Cat eq) e
-    assert ast
+    f ast
     -- check and get solution
     join . snd <$> withModel (`evalE` e)
   where
     opts = opt "MODEL" True
+
+runZ3 :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
+runZ3 = runZ3WithAST assert
+
+runZ3Show :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
+runZ3Show = runZ3WithAST assertShow

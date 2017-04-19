@@ -32,7 +32,7 @@ spec :: IO ()
 spec = hspec $
     describe "Basic tests" $
         it "Runs a Haskell function through Z3" $
-            runZ3 (ccc (uncurry (equation @Int)))
+            runZ3Show (ccc (uncurry (equation @Int)))
                 `shouldReturn` Just (1, 11)
 
 main :: IO ()
