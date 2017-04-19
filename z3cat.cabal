@@ -24,6 +24,7 @@ library
       base     >= 4.9   && < 4.10
     , concat   >= 0.2.0
     , ghc-prim
+    , base-orphans
     , mtl      >= 2.2.1
     , z3
   exposed-modules:
@@ -42,6 +43,7 @@ test-suite spec
       base     >= 4.9   && < 4.10
     , concat   >= 0.2.0
     , ghc-prim
+    , base-orphans
     , mtl      >= 2.2.1
     , z3
     , hspec == 2.*
