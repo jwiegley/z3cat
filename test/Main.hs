@@ -28,14 +28,13 @@ equation x y =
     f z k = z > 100 && k 20
 {-# INLINE equation #-}
 
-spec :: IO ()
-spec = hspec $
-    describe "Basic tests" $
-        it "Runs a Haskell function through Z3" $
-            runZ3Show (ccc (uncurry (equation @Int)))
-                `shouldReturn` Just (1, 11)
-
 main :: IO ()
 main = do
-    putStrLn $ render (ccc (uncurry (equation @Int)))
-    spec
+    -- Use a product category to compile once, but render into two different
+    -- target categories.
+    let (term :**: eq) = ccc (uncurry (equation @Int))
+    putStrLn $ render term
+    hspec $
+        describe "Basic tests" $
+            it "Runs a Haskell function through Z3" $
+                runZ3Show eq `shouldReturn` Just (1, 11)
