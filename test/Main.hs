@@ -13,23 +13,19 @@ import Prelude hiding ((.), id, curry, uncurry)
 import Test.Hspec
 import Z3.Category
 
-foo :: (Num a, Ord a) => a -> a -> Bool
-foo x y =
-    let f x y = x + y < 100 in
-    x < y &&
-    y < 555 &&
-    uncurry f (10, 20) &&
-    0 <= x - 3 + 7 * y &&
-    (x == y || y + 20 == x + 30)
+foo :: (Num a, Ord a) => a -> a -> (a -> (a -> Bool) -> Bool) -> Bool
+foo x y f = f 222 (< x + y)
+{-# NOINLINE foo #-}
 
 equation :: (Num a, Ord a) => a -> a -> Bool
 equation x y =
-    let f x y = x + y < 100 in
     x < y &&
     y < 100 &&
-    foo 10 20 &&
+    foo x 20 f &&
     0 <= x - 3 + 7 * y &&
     (x == y || y + 20 == x + 30)
+  where
+    f z k = z > 100 && k 20
 {-# INLINE equation #-}
 
 spec :: IO ()
@@ -37,7 +33,7 @@ spec = hspec $
     describe "Basic tests" $
         it "Runs a Haskell function through Z3" $
             runZ3 (ccc (uncurry (equation @Int)))
-                `shouldReturn` Just (-8, 2)
+                `shouldReturn` Just (1, 11)
 
 main :: IO ()
 main = do
