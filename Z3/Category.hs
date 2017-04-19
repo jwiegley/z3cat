@@ -112,7 +112,7 @@ instance BoolCat Z3Cat where
     xorC = liftE2 mkXor
 
 instance IfCat Z3Cat a where
-  ifC = eprim $ \ (PairE (PrimE c) (PairE (PrimE t) (PrimE e))) -> mkIte c t e
+    ifC = eprim $ \ (PairE (PrimE c) (PairE (PrimE t) (PrimE e))) -> mkIte c t e
 
 instance ProductCat Z3Cat where
     exl   = Z3Cat $ arr $ exl . unpairE
@@ -150,7 +150,7 @@ instance ClosedCat Z3Cat where
 -- https://ghc.haskell.org/trac/ghc/ticket/8779.
 
 instance Num a => NumCat Z3Cat a where
-    negateC = undefined
+    negateC = liftE1 mkUnaryMinus
     addC    = liftE2 (l2 mkAdd)
     subC    = liftE2 (l2 mkSub)
     mulC    = liftE2 (l2 mkMul)
