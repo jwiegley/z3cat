@@ -15,7 +15,12 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-module Z3.Category (Z3Cat, runZ3, runZ3Show, EvalE, GenE) where
+module Z3.Category
+       ( Z3Cat
+       , runZ3, runZ3Show
+       , EvalE(..), evalPrim
+       , GenE(..), genPrim
+       ) where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
