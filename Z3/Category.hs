@@ -198,7 +198,7 @@ assertShow ast = do
     assert ast
 
 runZ3WithAST :: (EvalE a, GenE a)
-             => (AST -> Z3 ()) -> Z3Cat a Bool -> IO (Maybe a)
+             => (AST -> Z3 ()) -> Z3Cat a b -> IO (Maybe a)
 runZ3WithAST f eq = evalZ3With Nothing opts $ do
     e <- genE
     PrimE ast <- runKleisli (runZ3Cat eq) e
@@ -208,7 +208,7 @@ runZ3WithAST f eq = evalZ3With Nothing opts $ do
   where
     opts = opt "MODEL" True
 
-runZ3 :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
+runZ3 :: (EvalE a, GenE a) => Z3Cat a b -> IO (Maybe a)
 runZ3 = runZ3WithAST assert
 
 runZ3Show :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
