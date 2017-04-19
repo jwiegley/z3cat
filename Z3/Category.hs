@@ -211,5 +211,5 @@ runZ3WithAST f eq = evalZ3With Nothing opts $ do
 runZ3 :: (EvalE a, GenE a) => Z3Cat a b -> IO (Maybe a)
 runZ3 = runZ3WithAST assert
 
-runZ3Show :: (EvalE a, GenE a) => Z3Cat a Bool -> IO (Maybe a)
+runZ3Show :: (EvalE a, GenE a) => Z3Cat a b -> IO (Maybe a)
 runZ3Show = runZ3WithAST assertShow
