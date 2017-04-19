@@ -15,7 +15,7 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-module Z3.Category (Z3Cat, runZ3, runZ3Show) where
+module Z3.Category (Z3Cat, runZ3, runZ3Show, EvalE, GenE) where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
@@ -30,6 +30,7 @@ import Z3.Monad
 
 -- Typed AST structures ("expressions")
 data E :: * -> * where
+    UnitE :: E ()
     PrimE :: AST -> E a
     PairE :: E a -> E b -> E (a, b)
     SumE  :: Either (E a) (E b) -> E (Either a b)
@@ -160,6 +161,7 @@ class GenE a where genE :: Z3 (E a)
 genPrim :: (String -> Z3 AST) -> Z3 (E a)
 genPrim mk = PrimE <$> mk "x"
 
+instance GenE ()     where genE = return UnitE
 instance GenE Bool   where genE = genPrim mkFreshBoolVar
 instance GenE Int    where genE = genPrim mkFreshIntVar
 instance GenE Float  where genE = genPrim mkFreshRealVar
@@ -175,6 +177,7 @@ evalPrim :: EvalAst Z3 a' -> (a' -> a) -> Model -> E a -> Z3 (Maybe a)
 evalPrim ev f m (PrimE a) = (fmap.fmap) f (ev m a)
 evalPrim _  _ _ e = error ("evalPrim: unexpected non-PrimE " ++ show e)
 
+instance EvalE ()     where evalE = evalPrim evalBool (const ())
 instance EvalE Bool   where evalE = evalPrim evalBool id
 instance EvalE Int    where evalE = evalPrim evalInt  fromInteger
 instance EvalE Float  where evalE = evalPrim evalReal fromRational

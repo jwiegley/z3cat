@@ -1,6 +1,7 @@
 name:       z3cat
 version:    0.1.0
 synopsis:   Compile Haskell functions into Z3 solver equations
+github:     jwiegley/z3cat
 author:     John Wiegley
 maintainer: johnw@newartisans.com
 category:   System
@@ -16,6 +17,7 @@ dependencies:
 library:
   exposed-modules:
     - Z3.Category
+    - Z3.Choice
 
 tests:
   spec:

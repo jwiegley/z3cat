@@ -9,9 +9,11 @@ module Main where
 import ConCat.AltCat (ccc)
 import ConCat.Category hiding (it)
 import ConCat.Syntactic (render)
+import Data.Monoid
 import Prelude hiding ((.), id, curry, uncurry)
 import Test.Hspec
 import Z3.Category
+import Z3.Choice
 
 foo :: (Num a, Ord a) => a -> a -> (a -> (a -> Bool) -> Bool) -> Bool
 foo x y f = f 222 (< x + y)
@@ -30,11 +32,15 @@ equation x y =
 
 main :: IO ()
 main = do
-    -- Use a product category to compile once, but render into two different
-    -- target categories.
-    let (term :**: eq) = ccc (uncurry (equation @Int))
-    putStrLn $ render term
-    hspec $
+    putStrLn $ render (ccc (uncurry (equation @Int)))
+    hspec $ do
         describe "Basic tests" $
             it "Runs a Haskell function through Z3" $
-                runZ3Show eq `shouldReturn` Just (1, 11)
+                runZ3Show (ccc (uncurry (equation @Int))) `shouldReturn` Just (1, 11)
+
+        describe "Non-deterministic choice" $
+            it "Let us satisfy something" $
+                runZ3Choice (singleton ((> 3)   :: Int -> Bool) <>
+                             (singleton ((< 10) :: Int -> Bool) `choose`
+                              singleton ((> 5)  :: Int -> Bool)))
+                    `shouldReturn` Nothing
