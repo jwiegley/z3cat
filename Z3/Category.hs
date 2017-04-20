@@ -24,6 +24,7 @@ module Z3.Category
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
+import ConCat.Misc ((:+),(:*))
 import ConCat.Category
 import ConCat.Rep
 import Control.Applicative (liftA2)
@@ -37,17 +38,17 @@ import Z3.Monad
 data E :: * -> * where
     UnitE :: E ()
     PrimE :: AST -> E a
-    PairE :: E a -> E b -> E (a, b)
-    SumE  :: Either (E a) (E b) -> E (Either a b)
+    PairE :: E a :* E b -> E (a :* b)
+    SumE  :: E a :+ E b -> E (a :+ b)
     ArrE  :: (E a -> Z3 (E b)) -> E (a -> b)
 
 deriving instance Show (E a)
 
-unpairE :: E (a,b) -> (E a, E b)
-unpairE (PairE a b) = (a,b)
+unpairE :: E (a :* b) -> E a :* E b
+unpairE (PairE ab) = ab
 unpairE e = error ("unpairE: non-pair" ++ show e)
 
-unsumE :: E (Either a b) -> Either (E a) (E b)
+unsumE :: E (a :+ b) -> E a :+ E b
 unsumE (SumE ab) = ab
 unsumE e = error ("unsumE: non-sum" ++ show e)
 
@@ -63,7 +64,7 @@ liftE1 :: (AST -> Z3 AST) -> Z3Cat a c
 liftE1 f = eprim $ \ (PrimE a) -> f a
 
 liftE2 :: (AST -> AST -> Z3 AST) -> Z3Cat (a,b) c
-liftE2 f = eprim $ \ (PairE (PrimE a) (PrimE b)) -> f a b
+liftE2 f = eprim $ \ (PairE (PrimE a,PrimE b)) -> f a b
 
 l2 :: ([a] -> b) -> a -> a -> b
 l2 f a1 a2 = f [a1,a2]
@@ -117,17 +118,17 @@ instance BoolCat Z3Cat where
     xorC = liftE2 mkXor
 
 instance IfCat Z3Cat a where
-    ifC = eprim $ \ (PairE (PrimE c) (PairE (PrimE t) (PrimE e))) -> mkIte c t e
+    ifC = eprim $ \ (PairE (PrimE c, PairE (PrimE t, PrimE e))) -> mkIte c t e
 
 instance ProductCat Z3Cat where
     exl   = Z3Cat $ arr $ exl . unpairE
     exr   = Z3Cat $ arr $ exr . unpairE
-    Z3Cat f &&& Z3Cat g = Z3Cat $ arr (uncurry PairE) . (f &&& g)
+    Z3Cat f &&& Z3Cat g = Z3Cat $ arr PairE . (f &&& g)
 
 -- f :: Kleisli Z3 (E a) (E c)
 -- g :: Kleisli Z3 (E a) (E d)
--- f &&& g :: Kleisli Z3 (E a) (E c,E d)
--- arr (uncurry PairE) :: Kleisli Z3 (E c, E d) (E (c,d))
+-- f &&& g :: Kleisli Z3 (E a) (E c :* E d)
+-- arr PairE :: Kleisli Z3 (E c :* E d) (E (c :* d))
 
 instance CoproductCat Z3Cat where
     inl   = Z3Cat $ arr $ SumE . inl
@@ -136,8 +137,8 @@ instance CoproductCat Z3Cat where
 
 -- f :: Kleisli Z3 (E a) (E c)
 -- g :: Kleisli Z3 (E b) (E c)
--- f ||| g :: Kleisli Z3 (Either (E a) (E b)) (E c)
--- (f ||| g) . arr unsumE :: Kleisli Z3 (E (Either a b)) (E c)
+-- f ||| g :: Kleisli Z3 (E a :+ E b) (E c)
+-- (f ||| g) . arr unsumE :: Kleisli Z3 (E (a :+ b)) (E c)
 
 constPrim :: (z -> Z3 AST) -> z -> Z3Cat a b
 constPrim f x = eprim (const (f x))
@@ -147,8 +148,8 @@ instance ConstCat Z3Cat Integer where const = constPrim mkIntNum
 instance ConstCat Z3Cat Bool    where const = constPrim mkBool
 
 instance ClosedCat Z3Cat where
-    curry   (Z3Cat (Kleisli f)) = Z $ \x -> return $ ArrE $ \y -> f (PairE x y)
-    uncurry (Z3Cat (Kleisli f)) = Z $ \(PairE x y) -> f x >>= \(ArrE f') -> f' y
+    curry   (Z3Cat (Kleisli f)) = Z $ \x -> return $ ArrE $ \y -> f (PairE (x,y))
+    uncurry (Z3Cat (Kleisli f)) = Z $ \(PairE (x,y)) -> f x >>= \(ArrE f') -> f' y
 
 -- Before GHC 8.2, the Z patterns here lead to erroneous warnings: "Pattern
 -- match(es) are non-exhaustive". Switch back to Z when we're on 8.2. See
@@ -172,7 +173,8 @@ instance GenE Int    where genE = genPrim mkFreshIntVar
 instance GenE Float  where genE = genPrim mkFreshRealVar
 instance GenE Double where genE = genPrim mkFreshRealVar
 
-instance (GenE a, GenE b) => GenE (a,b) where genE = liftA2 PairE genE genE
+instance (GenE a, GenE b) => GenE (a,b) where
+  genE = liftA2 (curry PairE) genE genE
 
 class EvalE a where evalE :: Model -> E a -> Z3 (Maybe a)
 
@@ -188,11 +190,11 @@ instance EvalE Int    where evalE = evalPrim evalInt  fromInteger
 instance EvalE Float  where evalE = evalPrim evalReal fromRational
 instance EvalE Double where evalE = evalPrim evalReal fromRational
 
-instance (EvalE a, EvalE b) => EvalE (a,b) where
-    evalE m (PairE a b) = (liftA2.liftA2) (,) (evalE m a) (evalE m b)
+instance (EvalE a, EvalE b) => EvalE (a :* b) where
+    evalE m (PairE (a,b)) = (liftA2.liftA2) (,) (evalE m a) (evalE m b)
     evalE _ e = error ("evalE on pair: unexpected E " ++ show e)
 
-instance (EvalE a, EvalE b) => EvalE (Either a b) where
+instance (EvalE a, EvalE b) => EvalE (a :+ b) where
     evalE m (SumE (Left  a)) = (fmap.fmap) Left  (evalE m a)
     evalE m (SumE (Right b)) = (fmap.fmap) Right (evalE m b)
     evalE _ e = error ("evalE on sum: unexpected E " ++ show e)
