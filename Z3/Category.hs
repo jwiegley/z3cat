@@ -74,8 +74,8 @@ instance Category Z3Cat where
     Z3Cat f . Z3Cat g = Z3Cat (f . g)
 
 instance Eq a => EqCat Z3Cat a where
-    equal    = liftE2 mkEq
-    notEqual = liftE2 (\ a b -> mkNot =<< mkEq a b) -- notC . equal
+    equal = liftE2 mkEq
+    -- default notEqual = notC . equal
 
 instance Ord a => OrdCat Z3Cat a where
     lessThan           = liftE2 mkLt
@@ -84,8 +84,8 @@ instance Ord a => OrdCat Z3Cat a where
     greaterThanOrEqual = liftE2 mkGe
 
 instance Fractional a => FractionalCat Z3Cat a where
-    recipC = undefined
     divideC = liftE2 mkDiv
+    -- default recipC = divideC . lconst 1
 
 instance (RealFrac a, Integral b) => RealFracCat Z3Cat a b where
     floorC = undefined
