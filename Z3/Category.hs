@@ -36,6 +36,7 @@ data E :: * -> * where
     PairE :: E a :* E b -> E (a :* b)
     SumE  :: E a :+ E b -> E (a :+ b)
     ArrE  :: (E a -> Z3 (E b)) -> E (a -> b)
+    RepE  :: E (Rep a) -> E a
 
 deriving instance Show (E a)
 
@@ -100,8 +101,8 @@ instance DistribCat Z3Cat where
     distr = undefined
 
 instance (r ~ Rep a) => RepCat Z3Cat a r where
-    reprC = undefined
-    abstC = undefined
+    reprC = Z $ \(RepE x) -> pure x
+    abstC = Z (pure . RepE)
 
 instance (Enum a, Show a) => EnumCat Z3Cat a where
     succC = undefined
@@ -206,12 +207,22 @@ runZ3WithAST :: (EvalE a, GenE a)
              => (AST -> Z3 ()) -> Z3Cat a b -> IO (Maybe a)
 runZ3WithAST f eq = evalZ3With Nothing opts $ do
     e <- genE
-    PrimE ast <- runKleisli (runZ3Cat eq) e
-    f ast
+    res <- runKleisli (runZ3Cat eq) e
+    reduce res
     -- check and get solution
     join . snd <$> withModel (`evalE` e)
   where
     opts = opt "MODEL" True
+
+    reduce :: E a -> Z3 ()
+    reduce UnitE = return ()
+    reduce (PrimE x) = f x
+    reduce (PairE (x, y)) = reduce x >> reduce y
+    reduce (SumE e) = case e of
+        Left x  -> reduce x
+        Right x -> reduce x
+    reduce (ArrE _) = error "ArrE from runZ3Cat"
+    reduce (RepE e) = reduce e
 
 runZ3 :: (EvalE a, GenE a) => Z3Cat a b -> IO (Maybe a)
 runZ3 = runZ3WithAST assert

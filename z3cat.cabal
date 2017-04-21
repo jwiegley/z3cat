@@ -49,6 +49,4 @@ test-suite spec
     , hspec == 2.*
     , z3cat
     , quickcheck-io
-  other-modules:
-      Stuff
   default-language: Haskell2010
