@@ -78,9 +78,9 @@ instance Ord a => OrdCat Z3Cat a where
     lessThanOrEqual    = liftE2 mkLe
     greaterThanOrEqual = liftE2 mkGe
 
-instance Fractional a => FractionalCat Z3Cat a where
+instance (ConstCat Z3Cat a, Fractional a) => FractionalCat Z3Cat a where
     divideC = liftE2 mkDiv
-    recipC = error "recipC not defined for Z3Cat"
+    -- recipC = error "recipC not defined for Z3Cat"
     -- default recipC = divideC . lconst 1
 
 instance (RealFrac a, Integral b) => RealFracCat Z3Cat a b where
@@ -139,9 +139,11 @@ instance CoproductCat Z3Cat where
 constPrim :: (z -> Z3 AST) -> z -> Z3Cat a b
 constPrim f x = eprim (const (f x))
 
+instance ConstCat Z3Cat Bool    where const = constPrim mkBool
 instance ConstCat Z3Cat Int     where const = constPrim mkIntNum
 instance ConstCat Z3Cat Integer where const = constPrim mkIntNum
-instance ConstCat Z3Cat Bool    where const = constPrim mkBool
+instance ConstCat Z3Cat Float   where const = constPrim mkRealNum
+instance ConstCat Z3Cat Double  where const = constPrim mkRealNum
 
 instance ClosedCat Z3Cat where
     curry   (Z3Cat (Kleisli f)) = Z $ \x -> return $ ArrE $ \y -> f (PairE (x,y))
