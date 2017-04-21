@@ -80,6 +80,7 @@ instance Ord a => OrdCat Z3Cat a where
 
 instance Fractional a => FractionalCat Z3Cat a where
     divideC = liftE2 mkDiv
+    recipC = error "recipC not defined for Z3Cat"
     -- default recipC = divideC . lconst 1
 
 instance (RealFrac a, Integral b) => RealFracCat Z3Cat a b where
