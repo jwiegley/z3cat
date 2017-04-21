@@ -110,8 +110,9 @@ instance (r ~ Rep a) => RepCat Z3Cat a r where
     abstC = Z (pure . RepE)
 
 instance (Enum a, Show a) => EnumCat Z3Cat a where
-    succC = undefined
-    predC = undefined
+    -- jww (2017-04-21): Shouldn't this be more general than 1 :: Int?
+    succC = eprim $ \(PrimE x) -> l2 mkAdd x =<< mkIntNum (1 :: Int)
+    predC = eprim $ \(PrimE x) -> l2 mkSub x =<< mkIntNum (1 :: Int)
 
 instance BoolCat Z3Cat where
     notC = liftE1 mkNot
