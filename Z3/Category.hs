@@ -19,24 +19,26 @@ module Z3.Category where
 
 import Prelude hiding (id, (.), curry, uncurry, const)
 
-import ConCat.Misc ((:+),(:*))
 import ConCat.Category
+import ConCat.Misc ((:+),(:*))
 import ConCat.Rep
 import Control.Applicative (liftA2)
 import Control.Arrow (Kleisli(..), arr)
 import Control.Monad (join)
+import Data.Coerce
 import Debug.Trace
 import Text.Show.Functions ()
 import Z3.Monad
 
 -- Typed AST structures ("expressions")
 data E :: * -> * where
-    UnitE :: E ()
-    PrimE :: AST -> E a
-    PairE :: E a :* E b -> E (a :* b)
-    SumE  :: E a :+ E b -> E (a :+ b)
-    ArrE  :: (E a -> Z3 (E b)) -> E (a -> b)
-    RepE  :: E (Rep a) -> E a
+    UnitE   :: E ()
+    PrimE   :: AST -> E a
+    PairE   :: E a :* E b -> E (a :* b)
+    SumE    :: E a :+ E b -> E (a :+ b)
+    ArrE    :: (E a -> Z3 (E b)) -> E (a -> b)
+    CoerceE :: Coercible a b => E a -> E b
+    RepE    :: E (Rep a) -> E a
 
 deriving instance Show (E a)
 
@@ -99,6 +101,9 @@ instance (Integral a, Num b) => FromIntegralCat Z3Cat a b where
 instance DistribCat Z3Cat where
     distl = undefined
     distr = undefined
+
+instance Coercible a b => CoerceCat Z3Cat a b where
+    coerceC = Z (pure . CoerceE)
 
 instance (r ~ Rep a) => RepCat Z3Cat a r where
     reprC = Z $ \(RepE x) -> pure x
@@ -223,6 +228,7 @@ runZ3WithAST f eq = evalZ3With Nothing opts $ do
         Right x -> reduce x
     reduce (ArrE _) = error "ArrE from runZ3Cat"
     reduce (RepE e) = reduce e
+    reduce (CoerceE e) = reduce (coerce e)
 
 runZ3 :: (EvalE a, GenE a) => Z3Cat a b -> IO (Maybe a)
 runZ3 = runZ3WithAST assert
