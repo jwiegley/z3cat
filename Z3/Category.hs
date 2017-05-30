@@ -181,28 +181,32 @@ instance GenE Double where genE = genPrim mkFreshRealVar
 instance (GenE a, GenE b) => GenE (a,b) where
   genE = liftA2 (curry PairE) genE genE
 
-class EvalE a where evalE :: Model -> E a -> Z3 (Maybe a)
+class EvalE a where
+    evalE :: Model -> E a -> Z3 (Maybe a)
 
 -- TODO: maybe combine GenE and EvalE
 
 evalPrim :: EvalAst Z3 a' -> (a' -> a) -> Model -> E a -> Z3 (Maybe a)
 evalPrim ev f m (PrimE a) = (fmap.fmap) f (ev m a)
 evalPrim _  _ _ e = error ("evalPrim: unexpected non-PrimE " ++ show e)
+{-# INLINE evalPrim #-}
 
-instance EvalE ()     where evalE = evalPrim evalBool (const ())
-instance EvalE Bool   where evalE = evalPrim evalBool id
-instance EvalE Int    where evalE = evalPrim evalInt  fromInteger
-instance EvalE Float  where evalE = evalPrim evalReal fromRational
-instance EvalE Double where evalE = evalPrim evalReal fromRational
+instance EvalE ()     where evalE = evalPrim evalBool (const ()); {-# INLINE evalE #-}
+instance EvalE Bool   where evalE = evalPrim evalBool id; {-# INLINE evalE #-}
+instance EvalE Int    where evalE = evalPrim evalInt  fromInteger; {-# INLINE evalE #-}
+instance EvalE Float  where evalE = evalPrim evalReal fromRational; {-# INLINE evalE #-}
+instance EvalE Double where evalE = evalPrim evalReal fromRational; {-# INLINE evalE #-}
 
 instance (EvalE a, EvalE b) => EvalE (a :* b) where
     evalE m (PairE (a,b)) = (liftA2.liftA2) (,) (evalE m a) (evalE m b)
     evalE _ e = error ("evalE on pair: unexpected E " ++ show e)
+    {-# INLINE evalE #-}
 
 instance (EvalE a, EvalE b) => EvalE (a :+ b) where
     evalE m (SumE (Left  a)) = (fmap.fmap) Left  (evalE m a)
     evalE m (SumE (Right b)) = (fmap.fmap) Right (evalE m b)
     evalE _ e = error ("evalE on sum: unexpected E " ++ show e)
+    {-# INLINE evalE #-}
 
 assertShow :: AST -> Z3 ()
 assertShow ast = do
