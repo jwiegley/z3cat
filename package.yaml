@@ -9,7 +9,9 @@ license:    MIT
 
 dependencies:
   - base     >= 4.9   && < 4.10
-  - concat   >= 0.2.0
+  - concat-classes
+  - concat-plugin
+  - concat-examples
   - ghc-prim
   - base-orphans
   - mtl      >= 2.2.1

@@ -1,4 +1,4 @@
--- This file has been generated from package.yaml by hpack version 0.17.0.
+-- This file has been generated from package.yaml by hpack version 0.18.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -22,7 +22,9 @@ source-repository head
 library
   build-depends:
       base     >= 4.9   && < 4.10
-    , concat   >= 0.2.0
+    , concat-classes
+    , concat-plugin
+    , concat-examples
     , ghc-prim
     , base-orphans
     , mtl      >= 2.2.1
@@ -41,7 +43,9 @@ test-suite spec
       test
   build-depends:
       base     >= 4.9   && < 4.10
-    , concat   >= 0.2.0
+    , concat-classes
+    , concat-plugin
+    , concat-examples
     , ghc-prim
     , base-orphans
     , mtl      >= 2.2.1
