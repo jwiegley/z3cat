@@ -21,6 +21,7 @@ library:
   exposed-modules:
     - Z3.Category
     - Z3.Choice
+    - Z3.Morph
 
 tests:
   spec:
