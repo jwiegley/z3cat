@@ -30,7 +30,11 @@ import Debug.Trace
 import Text.Show.Functions ()
 import Z3.Monad
 
--- Typed AST structures ("expressions")
+newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
+
+pattern Z :: (E t -> Z3 (E u)) -> Z3Cat t u
+pattern Z f = Z3Cat (Kleisli f)
+
 data E :: * -> * where
     UnitE   :: E ()
     PrimE   :: AST -> E a
@@ -42,6 +46,15 @@ data E :: * -> * where
 
 deriving instance Show (E a)
 
+eprim :: (E a -> Z3 AST) -> Z3Cat a b
+eprim f = Z $ fmap PrimE . f
+
+liftE1 :: (AST -> Z3 AST) -> Z3Cat a c
+liftE1 f = eprim $ \ (PrimE a) -> f a
+
+liftE2 :: (AST -> AST -> Z3 AST) -> Z3Cat (a,b) c
+liftE2 f = eprim $ \ (PairE (PrimE a, PrimE b)) -> f a b
+
 unpairE :: E (a :* b) -> E a :* E b
 unpairE (PairE ab) = ab
 unpairE e = error ("unpairE: non-pair" ++ show e)
@@ -50,20 +63,6 @@ unsumE :: E (a :+ b) -> E a :+ E b
 unsumE (SumE ab) = ab
 unsumE e = error ("unsumE: non-sum" ++ show e)
 
-newtype Z3Cat a b = Z3Cat { runZ3Cat :: Kleisli Z3 (E a) (E b) }
-
-pattern Z :: (E t -> Z3 (E u)) -> Z3Cat t u
-pattern Z f = Z3Cat (Kleisli f)
-
-eprim :: (E a -> Z3 AST) -> Z3Cat a b
-eprim f = Z $ fmap PrimE . f
-
-liftE1 :: (AST -> Z3 AST) -> Z3Cat a c
-liftE1 f = eprim $ \ (PrimE a) -> f a
-
-liftE2 :: (AST -> AST -> Z3 AST) -> Z3Cat (a,b) c
-liftE2 f = eprim $ \ (PairE (PrimE a,PrimE b)) -> f a b
-
 l2 :: ([a] -> b) -> a -> a -> b
 l2 f a1 a2 = f [a1,a2]
 
@@ -71,31 +70,28 @@ instance Category Z3Cat where
     id  = Z3Cat id
     Z3Cat f . Z3Cat g = Z3Cat (f . g)
 
-instance Eq a => EqCat Z3Cat a where
+instance EqCat Z3Cat a where
     equal = liftE2 mkEq
-    -- default notEqual = notC . equal
 
-instance Ord a => OrdCat Z3Cat a where
+instance OrdCat Z3Cat a where
     lessThan           = liftE2 mkLt
     greaterThan        = liftE2 mkGt
     lessThanOrEqual    = liftE2 mkLe
     greaterThanOrEqual = liftE2 mkGe
 
-instance (ConstCat Z3Cat a, Fractional a) => FractionalCat Z3Cat a where
+instance (ConstCat Z3Cat a, Num a) => FractionalCat Z3Cat a where
     divideC = liftE2 mkDiv
-    -- recipC = error "recipC not defined for Z3Cat"
-    -- default recipC = divideC . lconst 1
 
-instance (RealFrac a, Integral b) => RealFracCat Z3Cat a b where
+instance RealFracCat Z3Cat a b where
     floorC = undefined
     ceilingC = undefined
 
-instance Floating a => FloatingCat Z3Cat a where
+instance FloatingCat Z3Cat a where
     expC = undefined
     cosC = undefined
     sinC = undefined
 
-instance (Integral a, Num b) => FromIntegralCat Z3Cat a b where
+instance FromIntegralCat Z3Cat a b where
     fromIntegralC = undefined
 
 instance DistribCat Z3Cat where
@@ -109,8 +105,7 @@ instance (r ~ Rep a) => RepCat Z3Cat a r where
     reprC = Z $ \(RepE x) -> pure x
     abstC = Z (pure . RepE)
 
-instance (Enum a, Show a) => EnumCat Z3Cat a where
-    -- jww (2017-04-21): Shouldn't this be more general than 1 :: Int?
+instance EnumCat Z3Cat a where
     succC = eprim $ \(PrimE x) -> l2 mkAdd x =<< mkIntNum (1 :: Int)
     predC = eprim $ \(PrimE x) -> l2 mkSub x =<< mkIntNum (1 :: Int)
 
@@ -128,20 +123,10 @@ instance ProductCat Z3Cat where
     exr   = Z3Cat $ arr $ exr . unpairE
     Z3Cat f &&& Z3Cat g = Z3Cat $ arr PairE . (f &&& g)
 
--- f :: Kleisli Z3 (E a) (E c)
--- g :: Kleisli Z3 (E a) (E d)
--- f &&& g :: Kleisli Z3 (E a) (E c :* E d)
--- arr PairE :: Kleisli Z3 (E c :* E d) (E (c :* d))
-
 instance CoproductCat Z3Cat where
     inl   = Z3Cat $ arr $ SumE . inl
     inr   = Z3Cat $ arr $ SumE . inr
     Z3Cat f ||| Z3Cat g = Z3Cat $ (f ||| g) . arr unsumE
-
--- f :: Kleisli Z3 (E a) (E c)
--- g :: Kleisli Z3 (E b) (E c)
--- f ||| g :: Kleisli Z3 (E a :+ E b) (E c)
--- (f ||| g) . arr unsumE :: Kleisli Z3 (E (a :+ b)) (E c)
 
 constPrim :: (z -> Z3 AST) -> z -> Z3Cat a b
 constPrim f x = eprim (const (f x))
@@ -156,11 +141,7 @@ instance ClosedCat Z3Cat where
     curry   (Z3Cat (Kleisli f)) = Z $ \x -> return $ ArrE $ \y -> f (PairE (x,y))
     uncurry (Z3Cat (Kleisli f)) = Z $ \(PairE (x,y)) -> f x >>= \(ArrE f') -> f' y
 
--- Before GHC 8.2, the Z patterns here lead to erroneous warnings: "Pattern
--- match(es) are non-exhaustive". Switch back to Z when we're on 8.2. See
--- https://ghc.haskell.org/trac/ghc/ticket/8779.
-
-instance Num a => NumCat Z3Cat a where
+instance NumCat Z3Cat a where
     negateC = liftE1 mkUnaryMinus
     addC    = liftE2 (l2 mkAdd)
     subC    = liftE2 (l2 mkSub)
@@ -183,8 +164,6 @@ instance (GenE a, GenE b) => GenE (a,b) where
 
 class EvalE a where
     evalE :: Model -> E a -> Z3 (Maybe a)
-
--- TODO: maybe combine GenE and EvalE
 
 evalPrim :: EvalAst Z3 a' -> (a' -> a) -> Model -> E a -> Z3 (Maybe a)
 evalPrim ev f m (PrimE a) = (fmap.fmap) f (ev m a)
